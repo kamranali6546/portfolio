@@ -1,112 +1,103 @@
-// Web Audio API procedural micro-sounds for developer UI feedback
+/**
+ * Procedural Web Audio synthesizer for tactile architectural ambience.
+ * 100% self-contained, zero external audio asset loading.
+ */
 
-class SoundEffects {
+class SpatialAudioEngine {
   private ctx: AudioContext | null = null;
-  private isMuted: boolean = false;
+  private isMuted: boolean = true;
+  private droneOsc: OscillatorNode | null = null;
+  private droneGain: GainNode | null = null;
+  private filter: BiquadFilterNode | null = null;
 
-  constructor() {
-    // Lazy init audio context on first user interaction
-  }
+  public init() {
+    if (this.ctx) return;
+    try {
+      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.ctx = new AudioCtxClass();
+      
+      // Master filter (warm low-pass)
+      this.filter = this.ctx.createBiquadFilter();
+      this.filter.type = 'lowpass';
+      this.filter.frequency.setValueAtTime(260, this.ctx.currentTime);
+      this.filter.Q.setValueAtTime(2, this.ctx.currentTime);
+      this.filter.connect(this.ctx.destination);
 
-  private initCtx() {
-    if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtx) {
-        this.ctx = new AudioCtx();
-      }
+      // Ambient corridor drone
+      this.droneGain = this.ctx.createGain();
+      this.droneGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      this.droneGain.connect(this.filter);
+
+      this.droneOsc = this.ctx.createOscillator();
+      this.droneOsc.type = 'sine';
+      this.droneOsc.frequency.setValueAtTime(55, this.ctx.currentTime); // A1 note
+      this.droneOsc.connect(this.droneGain);
+      this.droneOsc.start();
+    } catch {
+      // AudioContext not supported or blocked
     }
   }
 
-  public toggleMute(): boolean {
-    this.isMuted = !this.isMuted;
-    return this.isMuted;
+  public setMuted(muted: boolean) {
+    this.isMuted = muted;
+    if (!this.ctx) {
+      if (!muted) this.init();
+      else return;
+    }
+    if (this.ctx && this.ctx.state === 'suspended' && !muted) {
+      this.ctx.resume();
+    }
+    if (this.droneGain && this.ctx) {
+      const targetGain = muted ? 0 : 0.04;
+      this.droneGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.4);
+    }
   }
 
   public getMuted(): boolean {
     return this.isMuted;
   }
 
-  public playClick(freq = 800) {
-    if (this.isMuted) return;
-    try {
-      this.initCtx();
-      if (!this.ctx) return;
-      if (this.ctx.state === 'suspended') this.ctx.resume();
-
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(freq / 2, this.ctx.currentTime + 0.04);
-
-      gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      osc.start();
-      osc.stop(this.ctx.currentTime + 0.05);
-    } catch {
-      // Ignore audio failure
-    }
+  /**
+   * Modulate drone frequency slightly based on scroll progress through corridor
+   */
+  public updateProgress(progress: number) {
+    if (!this.ctx || this.isMuted || !this.droneOsc || !this.filter) return;
+    const baseFreq = 55 + progress * 25; // 55Hz -> 80Hz
+    this.droneOsc.frequency.setTargetAtTime(baseFreq, this.ctx.currentTime, 0.2);
+    const filterFreq = 220 + progress * 180;
+    this.filter.frequency.setTargetAtTime(filterFreq, this.ctx.currentTime, 0.2);
   }
 
-  public playSuccess() {
-    if (this.isMuted) return;
-    try {
-      this.initCtx();
-      if (!this.ctx) return;
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+  /**
+   * Play subtle spatial portal threshold crossing chime
+   */
+  public playThresholdChime(frequencyMultiplier = 1) {
+    if (!this.ctx || this.isMuted) return;
+    if (this.ctx.state === 'suspended') return;
 
+    try {
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
 
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(523.25, now); // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.06); // E5
-      osc.frequency.setValueAtTime(783.99, now + 0.12); // G5
+      const baseFreq = 220 * frequencyMultiplier;
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.3);
 
-      gain.gain.setValueAtTime(0.05, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.035, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.26);
+      osc.stop(now + 0.65);
     } catch {
-      // Ignore
-    }
-  }
-
-  public playTerminalBeep() {
-    if (this.isMuted) return;
-    try {
-      this.initCtx();
-      if (!this.ctx) return;
-      if (this.ctx.state === 'suspended') this.ctx.resume();
-
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(940, this.ctx.currentTime);
-
-      gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      osc.start();
-      osc.stop(this.ctx.currentTime + 0.035);
-    } catch {
-      // Ignore
+      // Audio error ignored
     }
   }
 }
 
-export const sound = new SoundEffects();
+export const audioEngine = new SpatialAudioEngine();
