@@ -1,6 +1,8 @@
 {
-  "name": "Kamran Ali — 3D Spatial Walkthrough Portfolio",
-  "description": "A continuous architectural 3D gallery and spatial walkthrough portfolio for Kamran Ali, Senior Frontend Developer.",
+  "name": "Kamran Ali – Senior Frontend Developer",
+  "description": "Portfolio of Kamran Ali, Senior Frontend Developer. High-performance web applications, architecture-minded engineering, and AI-assisted workflows.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

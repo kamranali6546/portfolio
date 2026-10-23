@@ -1,206 +1,283 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
+import React, { useState, useCallback, useEffect, Suspense, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { viewerProfiles, type ProfileId, type Project, type SectionId } from './data/portfolio';
+import CustomCursor from './components/CustomCursor';
+import OpeningSequence from './components/OpeningSequence';
+import Navbar from './components/Navbar';
+import Hero from './components/Hero';
+import ContinueWatching from './components/ContinueWatching';
+import Scene from './components/Scene';
+import About from './components/About';
+import FloatingModeSwitch from './components/FloatingModeSwitch';
+import { EASE } from './components/fx';
+import { SmoothScrollProvider } from './hooks/smoothScroll';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Lenis from 'lenis';
-import { CHAPTERS } from './data/portfolioData';
-import { detectDeviceCapabilities, DeviceCapability } from './utils/deviceTier';
-import { audioEngine } from './utils/audio';
-import { TopBar } from './components/TopBar';
-import { CorridorCanvas } from './components/CorridorCanvas';
-import { ChapterHUD } from './components/ChapterHUD';
-import { KineticOverlays } from './components/KineticOverlays';
-import { StructuredReadView } from './components/StructuredReadView';
+// Route & Component Level Code Splitting: Lazy-load heavy below-the-fold sections and modals
+const MinimalPortfolio = React.lazy(() => import('./components/MinimalPortfolio'));
+const ProjectModal = React.lazy(() => import('./components/ProjectModal'));
+const ResumeModal = React.lazy(() => import('./components/ResumeModal'));
+const PlayIntro = React.lazy(() => import('./components/PlayIntro'));
+const Seasons = React.lazy(() => import('./components/Seasons'));
+const Originals = React.lazy(() => import('./components/Originals'));
+const TopPicks = React.lazy(() => import('./components/TopPicks'));
+const Skills = React.lazy(() => import('./components/Skills'));
+const Achievements = React.lazy(() => import('./components/Achievements'));
+const ResumeSection = React.lazy(() => import('./components/ResumeViewer'));
+const FinalCTA = React.lazy(() => import('./components/FinalCTA'));
+
+const SectionLoader = () => (
+  <div className="flex h-48 w-full items-center justify-center rounded-2xl border border-white/5 bg-white/[0.02] text-xs font-mono text-[#a7a6ad] animate-pulse">
+    Loading scene...
+  </div>
+);
+
+type Stage = 'opening' | 'home' | 'minimal';
+const STORAGE_KEY = 'kamran-series-profile';
+const MODE_STORAGE_KEY = 'kamran_view_mode';
+
+function readStoredStage(): { stage: Stage; profileId: ProfileId } {
+  try {
+    const mode = sessionStorage.getItem(MODE_STORAGE_KEY);
+    if (mode === 'minimal') {
+      return { stage: 'minimal', profileId: 'kamran' };
+    }
+    const profile = sessionStorage.getItem(STORAGE_KEY);
+    if (profile && viewerProfiles.some((p) => p.id === profile)) {
+      return { stage: 'home', profileId: profile as ProfileId };
+    }
+  } catch {
+    /* storage unavailable */
+  }
+  return { stage: 'opening', profileId: 'kamran' };
+}
 
 export default function App() {
-  const [deviceCaps, setDeviceCaps] = useState<DeviceCapability | null>(null);
-  const [mode, setMode] = useState<'3d' | 'reader'>('3d');
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
-  const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const initial = readStoredStage();
+  const [stage, setStage] = useState<Stage>(initial.stage);
+  const [profileId, setProfileId] = useState<ProfileId>(initial.profileId);
+  const [playing, setPlaying] = useState(false);
+  const [project, setProject] = useState<Project | null>(null);
+  const [resumeOpen, setResumeOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  const lenisRef = useRef<Lenis | null>(null);
-  const prevChapterRef = useRef<number>(0);
+  const activeProfile = viewerProfiles.find((p) => p.id === profileId) ?? viewerProfiles[0];
+  const order = activeProfile.order;
 
-  // 1. Initial Device Capability Assessment
-  useEffect(() => {
-    const caps = detectDeviceCapabilities();
-    setDeviceCaps(caps);
-
-    // Read stored user preference if present
-    const savedMode = localStorage.getItem('portfolio_view_mode') as '3d' | 'reader' | null;
-    if (savedMode) {
-      setMode(savedMode);
-    } else {
-      setMode(caps.recommendedMode);
-    }
-  }, []);
-
-  // 2. Initialize Lenis Smooth Scroll Engine
-  useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: 'vertical',
-      gestureOrientation: 'vertical',
-      smoothWheel: true,
-      touchMultiplier: 1.5,
-    });
-    lenisRef.current = lenis;
-
-    const onScroll = () => {
-      const scrollY = window.scrollY;
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      if (maxScroll > 0) {
-        const progress = Math.min(1, Math.max(0, scrollY / maxScroll));
-        setScrollProgress(progress);
-        audioEngine.updateProgress(progress);
+  const pickProfile = useCallback(
+    (id: ProfileId) => {
+      setProfileId(id);
+      try {
+        sessionStorage.setItem(STORAGE_KEY, id);
+      } catch {
+        /* storage unavailable */
       }
-    };
-
-    lenis.on('scroll', onScroll);
-
-    let rafId: number;
-    function raf(time: number) {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    }
-    rafId = requestAnimationFrame(raf);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      lenis.destroy();
-      lenisRef.current = null;
-    };
-  }, [mode]);
-
-  // 3. Handle Chapter Threshold Crossings & Audio Cues
-  const handleChapterChange = useCallback((newIdx: number) => {
-    setCurrentChapterIndex(newIdx);
-    if (newIdx !== prevChapterRef.current) {
-      prevChapterRef.current = newIdx;
-      // Play tactile spatial portal transition chime
-      audioEngine.playThresholdChime(1 + newIdx * 0.12);
-    }
-  }, []);
-
-  // 4. Toggle between 3D Spatial Walkthrough & Structured Read mode
-  const handleToggleMode = () => {
-    const nextMode = mode === '3d' ? 'reader' : '3d';
-    setMode(nextMode);
-    localStorage.setItem('portfolio_view_mode', nextMode);
-    // Reset scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // 5. Toggle Spatial Ambience Audio
-  const handleToggleAudio = () => {
-    const newMuted = !isAudioMuted;
-    setIsAudioMuted(newMuted);
-    audioEngine.setMuted(newMuted);
-  };
-
-  // 6. Navigation: jump to specific chapter
-  const handleNavigateChapter = (chapterIdx: number) => {
-    if (mode === '3d') {
-      const chapter = CHAPTERS[chapterIdx];
-      if (!chapter) return;
-      const targetRatio = (chapter.scrollRange[0] + chapter.scrollRange[1]) / 2;
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      const targetScrollY = targetRatio * maxScroll;
-
-      if (lenisRef.current) {
-        lenisRef.current.scrollTo(targetScrollY, { duration: 1.4 });
+      if (stage !== 'home') {
+        window.scrollTo(0, 0);
+        setStage('home');
       } else {
-        window.scrollTo({ top: targetScrollY, behavior: 'smooth' });
+        const p = viewerProfiles.find((v) => v.id === id)!;
+        setToast(`Now watching as ${p.name} — ${p.blurb.toLowerCase()}`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
-    } else {
-      // Reader mode: scroll to section id
-      const chapter = CHAPTERS[chapterIdx];
-      if (!chapter) return;
-      const el = document.getElementById(chapter.id);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
-      }
-    }
-  };
+    },
+    [stage]
+  );
 
-  // 7. Keyboard Navigation (Arrow keys, Space)
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (mode !== '3d') return;
-      if (e.key === 'ArrowDown' || e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) {
-        if (currentChapterIndex < CHAPTERS.length - 1) {
-          handleNavigateChapter(currentChapterIndex + 1);
-        }
-      } else if (e.key === 'ArrowUp' || e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) {
-        if (currentChapterIndex > 0) {
-          handleNavigateChapter(currentChapterIndex - 1);
-        }
-      }
-    };
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [toast]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, currentChapterIndex]);
+  const handleSkipIntro = useCallback(() => {
+    try {
+      sessionStorage.setItem(MODE_STORAGE_KEY, 'minimal');
+    } catch {
+      /* storage unavailable */
+    }
+    setStage('minimal');
+    window.scrollTo(0, 0);
+  }, []);
+
+  const handlePlaySeries = useCallback(() => {
+    try {
+      sessionStorage.setItem(MODE_STORAGE_KEY, 'series');
+    } catch {
+      /* storage unavailable */
+    }
+    setStage('home');
+    window.scrollTo(0, 0);
+  }, []);
+
+  const handleSwitchToSeries = useCallback(() => {
+    try {
+      sessionStorage.setItem(MODE_STORAGE_KEY, 'series');
+    } catch {
+      /* storage unavailable */
+    }
+    setStage('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleSwitchToMinimal = useCallback(() => {
+    try {
+      sessionStorage.setItem(MODE_STORAGE_KEY, 'minimal');
+    } catch {
+      /* storage unavailable */
+    }
+    setStage('minimal');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const sections: Record<SectionId, ReactNode> = {
+    about: <About />,
+    journey: <Seasons />,
+    originals: <Originals onOpen={setProject} />,
+    picks: <TopPicks />,
+    skills: <Skills />,
+    moments: <Achievements />,
+    story: <ResumeSection onView={() => setResumeOpen(true)} />,
+  };
 
   return (
-    <div className="relative min-h-screen bg-[#070709] text-slate-100">
-      {/* Universal Top Bar */}
-      <TopBar
-        currentChapterIndex={currentChapterIndex}
-        activeMode={mode}
-        onToggleMode={handleToggleMode}
-        isMuted={isAudioMuted}
-        onToggleAudio={handleToggleAudio}
-        onNavigateChapter={handleNavigateChapter}
-      />
+    <SmoothScrollProvider>
+      <div className="relative min-h-screen bg-[#07070a] text-[#f4f1ec]">
+        {/* Subtle Film Grain */}
+        <div className="grain" aria-hidden="true" />
 
-      {/* 3D MODE: Full Viewport Architectural Gallery */}
-      {mode === '3d' && (
-        <>
-          {/* Three.js Corridor Canvas */}
-          <CorridorCanvas
-            scrollProgress={scrollProgress}
-            currentChapterIndex={currentChapterIndex}
-            onChapterChange={handleChapterChange}
+        {/* Custom Cinema Disc Cursor */}
+        <CustomCursor />
+
+        {/* Stage 1: Opening Titles Sequence */}
+        <AnimatePresence>
+          {stage === 'opening' && (
+            <OpeningSequence
+              key="opening"
+              onPlaySeries={handlePlaySeries}
+              onSkipToMinimal={handleSkipIntro}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Stage 2: Home Series Experience */}
+        {stage === 'home' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 1.03, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            transition={{ duration: 1, ease: EASE }}
+          >
+            {/* Main Netflix Series Navigation */}
+            <Navbar
+              order={order}
+              profileId={profileId}
+              onSwitch={pickProfile}
+              onSwitchToMinimal={handleSwitchToMinimal}
+            />
+
+            <main id="main-content">
+              {/* Billboard Hero */}
+              <Hero
+                key={`hero-${profileId}`}
+                onPlay={() => setPlaying(true)}
+                onResume={() => setResumeOpen(true)}
+                profileId={profileId}
+              />
+
+              {/* Continue Watching Row */}
+              <ContinueWatching order={order} />
+
+              {/* Dynamically Ordered Series Scenes */}
+              {order.map((id) => (
+                <Scene key={id} id={id} className={id === 'originals' ? '!py-0 sm:!py-0' : ''}>
+                  <Suspense fallback={<SectionLoader />}>
+                    {sections[id]}
+                  </Suspense>
+                </Scene>
+              ))}
+
+              {/* Final CTA / To Be Continued */}
+              <Suspense fallback={null}>
+                <FinalCTA
+                  onReplay={() => setStage('opening')}
+                  onSwitchToMinimal={handleSwitchToMinimal}
+                />
+              </Suspense>
+            </main>
+          </motion.div>
+        )}
+
+        {/* Stage 4: Clean, Minimal Single-Page Website */}
+        {stage === 'minimal' && (
+          <motion.div
+            key="minimal-view"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.7, ease: EASE }}
+          >
+            <Suspense fallback={<div className="min-h-screen bg-[#07070a] flex items-center justify-center text-sm font-mono text-[#a7a6ad]">Loading view...</div>}>
+              <MinimalPortfolio
+                onSwitchToSeries={handleSwitchToSeries}
+                onOpenProject={setProject}
+                onOpenResume={() => setResumeOpen(true)}
+              />
+            </Suspense>
+          </motion.div>
+        )}
+
+        {/* Modals & Overlays (Only fetched when triggered by user) */}
+        <AnimatePresence>
+          {playing && (
+            <Suspense fallback={null}>
+              <PlayIntro key="intro" onClose={() => setPlaying(false)} />
+            </Suspense>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {project && (
+            <Suspense fallback={null}>
+              <ProjectModal
+                key="project"
+                project={project}
+                onClose={() => setProject(null)}
+                onSwitch={setProject}
+              />
+            </Suspense>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {resumeOpen && (
+            <Suspense fallback={null}>
+              <ResumeModal key="resume" onClose={() => setResumeOpen(false)} />
+            </Suspense>
+          )}
+        </AnimatePresence>
+
+        {/* Dynamic Profile Switch Toast */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              role="status"
+              className="glass fixed bottom-6 left-1/2 z-[160] w-[min(92vw,420px)] -translate-x-1/2 rounded-xl px-5 py-3 text-center text-sm font-sans text-[#f4f1ec] shadow-2xl"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 30 }}
+            >
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Floating Minimal/Series Switch Button */}
+        {(stage === 'home' || stage === 'minimal') && (
+          <FloatingModeSwitch
+            currentMode={stage === 'home' ? 'series' : 'minimal'}
+            onToggle={stage === 'home' ? handleSwitchToMinimal : handleSwitchToSeries}
           />
+        )}
 
-          {/* Kinetic Semantic Text Overlays */}
-          <KineticOverlays
-            currentChapterIndex={currentChapterIndex}
-            scrollProgress={scrollProgress}
-          />
-
-          {/* Bottom HUD Controller */}
-          <ChapterHUD
-            currentChapterIndex={currentChapterIndex}
-            scrollProgress={scrollProgress}
-            onNavigateChapter={handleNavigateChapter}
-          />
-
-          {/* Virtual Scroll Height (680vh enables comfortable, disciplined dollying through all 8 rooms) */}
-          <div
-            className="w-full pointer-events-none"
-            style={{ height: '680vh' }}
-            aria-hidden="true"
-          />
-        </>
-      )}
-
-      {/* STRUCTURED READ MODE: Accessible, Fast, Mobile-Optimized Stacked Reading */}
-      {mode === 'reader' && (
-        <StructuredReadView
-          onSwitchTo3D={() => {
-            setMode('3d');
-            localStorage.setItem('portfolio_view_mode', '3d');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          supportsWebGL={Boolean(deviceCaps?.supportsWebGL)}
-        />
-      )}
-    </div>
+      </div>
+    </SmoothScrollProvider>
   );
 }

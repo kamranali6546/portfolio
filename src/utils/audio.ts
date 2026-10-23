@@ -1,103 +1,68 @@
 /**
- * Procedural Web Audio synthesizer for tactile architectural ambience.
- * 100% self-contained, zero external audio asset loading.
+ * Web Audio API synthesizer for the iconic cinematic trailer "Ta-dum" / cinema chord.
+ * Pure synthetic Web Audio — no external audio files or network latency required.
  */
 
-class SpatialAudioEngine {
-  private ctx: AudioContext | null = null;
-  private isMuted: boolean = true;
-  private droneOsc: OscillatorNode | null = null;
-  private droneGain: GainNode | null = null;
-  private filter: BiquadFilterNode | null = null;
+let audioCtx: AudioContext | null = null;
 
-  public init() {
-    if (this.ctx) return;
-    try {
-      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtxClass();
-      
-      // Master filter (warm low-pass)
-      this.filter = this.ctx.createBiquadFilter();
-      this.filter.type = 'lowpass';
-      this.filter.frequency.setValueAtTime(260, this.ctx.currentTime);
-      this.filter.Q.setValueAtTime(2, this.ctx.currentTime);
-      this.filter.connect(this.ctx.destination);
+export function playCinematicChord(volume = 0.3) {
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
 
-      // Ambient corridor drone
-      this.droneGain = this.ctx.createGain();
-      this.droneGain.gain.setValueAtTime(0, this.ctx.currentTime);
-      this.droneGain.connect(this.filter);
-
-      this.droneOsc = this.ctx.createOscillator();
-      this.droneOsc.type = 'sine';
-      this.droneOsc.frequency.setValueAtTime(55, this.ctx.currentTime); // A1 note
-      this.droneOsc.connect(this.droneGain);
-      this.droneOsc.start();
-    } catch {
-      // AudioContext not supported or blocked
+    if (!audioCtx) {
+      audioCtx = new AudioContextClass();
     }
-  }
-
-  public setMuted(muted: boolean) {
-    this.isMuted = muted;
-    if (!this.ctx) {
-      if (!muted) this.init();
-      else return;
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
     }
-    if (this.ctx && this.ctx.state === 'suspended' && !muted) {
-      this.ctx.resume();
-    }
-    if (this.droneGain && this.ctx) {
-      const targetGain = muted ? 0 : 0.04;
-      this.droneGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.4);
-    }
-  }
 
-  public getMuted(): boolean {
-    return this.isMuted;
-  }
+    const now = audioCtx.currentTime;
 
-  /**
-   * Modulate drone frequency slightly based on scroll progress through corridor
-   */
-  public updateProgress(progress: number) {
-    if (!this.ctx || this.isMuted || !this.droneOsc || !this.filter) return;
-    const baseFreq = 55 + progress * 25; // 55Hz -> 80Hz
-    this.droneOsc.frequency.setTargetAtTime(baseFreq, this.ctx.currentTime, 0.2);
-    const filterFreq = 220 + progress * 180;
-    this.filter.frequency.setTargetAtTime(filterFreq, this.ctx.currentTime, 0.2);
-  }
+    // Master gain
+    const masterGain = audioCtx.createGain();
+    masterGain.gain.setValueAtTime(volume, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.001, now + 2.8);
+    masterGain.connect(audioCtx.destination);
 
-  /**
-   * Play subtle spatial portal threshold crossing chime
-   */
-  public playThresholdChime(frequencyMultiplier = 1) {
-    if (!this.ctx || this.isMuted) return;
-    if (this.ctx.state === 'suspended') return;
+    // Deep sub-bass thud (55 Hz -> 40 Hz)
+    const subOsc = audioCtx.createOscillator();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(65, now);
+    subOsc.frequency.exponentialRampToValueAtTime(42, now + 1.2);
+    const subGain = audioCtx.createGain();
+    subGain.gain.setValueAtTime(1.0, now);
+    subGain.gain.exponentialRampToValueAtTime(0.01, now + 2.2);
+    subOsc.connect(subGain);
+    subGain.connect(masterGain);
+    subOsc.start(now);
+    subOsc.stop(now + 2.5);
 
-    try {
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+    // Cinema strike mid tone (130 Hz & 165 Hz)
+    const midOsc = audioCtx.createOscillator();
+    midOsc.type = 'triangle';
+    midOsc.frequency.setValueAtTime(130, now);
+    midOsc.frequency.exponentialRampToValueAtTime(110, now + 0.8);
+    const midGain = audioCtx.createGain();
+    midGain.gain.setValueAtTime(0.6, now);
+    midGain.gain.exponentialRampToValueAtTime(0.01, now + 1.8);
+    midOsc.connect(midGain);
+    midGain.connect(masterGain);
+    midOsc.start(now);
+    midOsc.stop(now + 2.0);
 
-      osc.type = 'triangle';
-      const baseFreq = 220 * frequencyMultiplier;
-      osc.frequency.setValueAtTime(baseFreq, now);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.3);
-
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.035, now + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.65);
-    } catch {
-      // Audio error ignored
-    }
+    // Resonant chime harmonic (260 Hz)
+    const chimeOsc = audioCtx.createOscillator();
+    chimeOsc.type = 'sine';
+    chimeOsc.frequency.setValueAtTime(260, now);
+    const chimeGain = audioCtx.createGain();
+    chimeGain.gain.setValueAtTime(0.3, now);
+    chimeGain.gain.exponentialRampToValueAtTime(0.001, now + 2.4);
+    chimeOsc.connect(chimeGain);
+    chimeGain.connect(masterGain);
+    chimeOsc.start(now);
+    chimeOsc.stop(now + 2.5);
+  } catch (err) {
+    console.debug('Web audio unavailable:', err);
   }
 }
-
-export const audioEngine = new SpatialAudioEngine();

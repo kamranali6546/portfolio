@@ -1,21 +1,127 @@
 <!doctype html>
-<html lang="en" class="scroll-smooth bg-[#08080a] text-slate-100 antialiased">
+<html lang="en" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kamran Ali — Senior Frontend Developer | Spatial Portfolio</title>
-    <meta name="description" content="A continuous architectural 3D gallery and spatial walkthrough portfolio for Kamran Ali, Senior Frontend Developer." />
-    <meta property="og:title" content="Kamran Ali — Senior Frontend Developer | Spatial Portfolio" />
-    <meta property="og:description" content="A continuous architectural 3D gallery and spatial walkthrough portfolio for Kamran Ali, Senior Frontend Developer." />
+    <title>Kamran Ali – Senior Frontend Developer</title>
+    <meta
+      name="description"
+      content="Senior Frontend Developer with over 6 years of experience architecting high-performance web applications, enterprise design systems, and AI-assisted workflows using React, Next.js, and TypeScript."
+    />
+    <meta name="author" content="Kamran Ali" />
+    <meta name="theme-color" content="#07070a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kamran Ali" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
+    <meta property="og:title" content="Kamran Ali – Senior Frontend Developer" />
+    <meta
+      property="og:description"
+      content="Senior Frontend Developer with over 6 years of experience architecting high-performance web applications, enterprise design systems, and AI-assisted workflows."
+    />
+    <meta property="og:site_name" content="Kamran Ali Portfolio" />
+
+    <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="twitter:title" content="Kamran Ali – Senior Frontend Developer" />
+    <meta
+      name="twitter:description"
+      content="Senior Frontend Developer with over 6 years of experience architecting high-performance web applications, enterprise design systems, and AI-assisted workflows."
+    />
+
+    <!-- Priority Preload for LCP Hero Portrait -->
+    <link rel="preload" as="image" href="/assets/banner-portrait.webp" type="image/webp" fetchpriority="high" />
+
+    <!-- Google Fonts DNS Prefetch, Preconnect, and Non-blocking Async Stylesheet -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      />
+    </noscript>
+
+    <!-- Schema.org JSON-LD for Person and WebSite -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Person",
+            "@id": "https://kamranali.dev/#person",
+            "name": "Kamran Ali",
+            "jobTitle": "Senior Frontend Developer",
+            "description": "Senior Frontend Developer with over 6 years of experience architecting high-performance web applications and scalable enterprise design systems using React.js, Next.js, and TypeScript.",
+            "email": "kamranali6546@gmail.com",
+            "telephone": "+92 346 8051600",
+            "url": "https://kamranali.dev",
+            "sameAs": [
+              "https://www.linkedin.com/in/kamran-ali-b9a7183b0/",
+              "https://wa.me/995568772744",
+              "tel:+923468051600",
+              "tel:+995568772744"
+            ],
+            "alumniOf": {
+              "@type": "CollegeOrUniversity",
+              "name": "Lahore Garrison University"
+            },
+            "knowsAbout": [
+              "React.js",
+              "Next.js",
+              "TypeScript",
+              "Server-Side Rendering",
+              "Web Performance Optimization",
+              "Enterprise Design Systems",
+              "Tailwind CSS",
+              "WCAG Accessibility",
+              "AI-Assisted Engineering"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://kamranali.dev/#website",
+            "name": "Kamran Ali – Senior Frontend Developer",
+            "url": "https://kamranali.dev",
+            "author": {
+              "@id": "https://kamranali.dev/#person"
+            }
+          }
+        ]
+      }
+    </script>
+
+    <!-- Prevent Dark Mode Flash -->
+    <script>
+      (function() {
+        try {
+          var stored = localStorage.getItem('ka-theme');
+          var isDark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-[#08080a] text-slate-100 selection:bg-amber-600/30 selection:text-amber-200 overflow-x-hidden">
+  <body class="bg-canvas text-ink antialiased selection:bg-accent/20 selection:text-ink min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
