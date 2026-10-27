@@ -6,7 +6,11 @@ import EpisodeCard from './EpisodeCard';
 import { RailButtons } from './Rail';
 
 export default function Seasons() {
-  const [active, setActive] = useState(seasons.length - 2); // default to Exion Technologies (Season 4)
+  // Season 2 is active by default as requested
+  const [active, setActive] = useState(() => {
+    const s2Index = seasons.findIndex((s) => s.number === 2);
+    return s2Index !== -1 ? s2Index : 1;
+  });
   const season = seasons[active];
   const rail = useRef<HTMLDivElement>(null);
 

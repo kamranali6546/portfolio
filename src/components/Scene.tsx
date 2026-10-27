@@ -17,9 +17,22 @@ export default function Scene({
 }) {
   const ref = useRef<HTMLElement>(null);
   useTrackProgress(id, ref);
+  const isOriginals = id === 'originals';
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'start 0.6'] });
   const opacity = useTransform(scrollYProgress, [0, 1], [0.25, 1]);
   const scale = useTransform(scrollYProgress, [0, 1], [0.98, 1]);
+
+  if (isOriginals) {
+    return (
+      <section
+        id={id}
+        ref={ref}
+        className={`relative scroll-mt-20 !py-0 sm:!py-0 ${className}`}
+      >
+        {children}
+      </section>
+    );
+  }
 
   return (
     <motion.section

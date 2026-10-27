@@ -1,14 +1,15 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useScroll, useSpring, useTransform } from 'framer-motion';
 import { profile, projects, type Project } from '../data/portfolio';
 import { useDesktop, useReducedMotionPref } from '../hooks/useMedia';
-import { EASE, RevealText } from './fx';
+import { RevealText } from './fx';
 import ProjectCard from './ProjectCard';
+import { RailButtons } from './Rail';
 
 /**
- * ORIGINALS — exactly same as in the Sushmita Dasari Portfolio_series repository:
- * On desktop the section pins and scrolls sideways like a title sequence as the user scrolls.
- * On touch / small screens / reduced motion it becomes a native swipe rail.
+ * ORIGINALS — Flagship showcase projects:
+ * On desktop the section pins and scrolls sideways like a cinematic title sequence as the user scrolls vertically.
+ * On touch / small screens / reduced motion it becomes a native swipe rail with RailButtons.
  */
 export default function Originals({ onOpen }: { onOpen: (p: Project) => void }) {
   const desktop = useDesktop();
@@ -19,11 +20,11 @@ export default function Originals({ onOpen }: { onOpen: (p: Project) => void }) 
 
 function Intro() {
   return (
-    <div className="flex w-full shrink-0 flex-col justify-center lg:w-[34vw]">
+    <div className="flex w-[82vw] shrink-0 snap-start flex-col justify-center sm:w-[50vw] md:w-[38vw] lg:w-[34vw] pr-4 select-none">
       <p className="mb-3 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.32em] text-[#ff3d5a]">
         <span className="h-px w-8 bg-[#ff3d5a]" /> {projects.length} Originals · {projects[0]?.year || '2026'}
       </p>
-      <RevealText as="h2" text="ORIGINALS" className="font-display text-[clamp(3.5rem,9vw,8rem)] leading-[0.85] text-[#f4f1ec]" />
+      <RevealText as="h2" text="ORIGINALS" className="font-display text-[clamp(3.5rem,8vw,7.5rem)] leading-[0.85] text-[#f4f1ec]" />
       <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-[#a7a6ad]">
         Flagship client platforms engineered with React, Next.js, and TypeScript. Open any title for the full story.
       </p>
@@ -99,23 +100,28 @@ function PinnedOriginals({ onOpen }: { onOpen: (p: Project) => void }) {
 }
 
 function RailOriginals({ onOpen }: { onOpen: (p: Project) => void }) {
+  const rail = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="py-6">
-      <div className="gutter mb-6">
-        <Intro />
+    <div className="relative py-4">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_60%_at_70%_50%,rgba(229,19,43,0.08),transparent_70%)]"
+      />
+      <div className="group/rail relative">
+        <div
+          ref={rail}
+          className="rail px-4 sm:px-8 lg:px-12 flex snap-x snap-mandatory items-center gap-6 sm:gap-8 overflow-x-auto py-6"
+          data-cursor="drag"
+        >
+          <Intro />
+          {projects.map((p, i) => (
+            <ProjectCard key={p.id} project={p} index={i} onOpen={() => onOpen(p)} />
+          ))}
+          <Outro />
+        </div>
+        <RailButtons rail={rail} />
       </div>
-      <motion.div
-        className="rail gutter flex snap-x snap-mandatory gap-4 overflow-x-auto pb-6"
-        initial={{ opacity: 0, x: 60 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.9, ease: EASE }}
-      >
-        {projects.map((p, i) => (
-          <ProjectCard key={p.id} project={p} index={i} onOpen={() => onOpen(p)} />
-        ))}
-        <Outro />
-      </motion.div>
     </div>
   );
 }

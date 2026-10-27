@@ -409,7 +409,13 @@ export default function MinimalPortfolio({
 
                   {/* Verified Metrics Badge */}
                   {p.metrics && p.metrics[0] && (
-                    <div className="mt-3.5 inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#ff3d5a]/10 border border-[#ff3d5a]/20 text-[11px] font-mono text-[#ff3d5a]">
+                    <div
+                      className={`mt-3.5 inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-[11px] font-mono ${
+                        p.metrics[0].value === 'N/A'
+                          ? 'bg-white/5 border-white/10 text-[#a1a1aa]'
+                          : 'bg-[#ff3d5a]/10 border-[#ff3d5a]/20 text-[#ff3d5a]'
+                      }`}
+                    >
                       <span className="font-bold">{p.metrics[0].value}</span>
                       <span className="text-[#a1a1aa]">{p.metrics[0].label}</span>
                     </div>
